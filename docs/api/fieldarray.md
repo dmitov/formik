@@ -110,7 +110,7 @@ You can also iterate through an array of objects, by following a convention of `
 
 Validation can be tricky with `<FieldArray>`.
 
-If you use [`validationSchema`](api/formik.md#validationschema-schema-schema) and your form has array validation requirements (like a min length) as well as nested array field requirements, displaying errors can be tricky. Formik/Yup will show validation errors inside out. For example,
+If you use [`validationSchema`](api/formik.md#validationschema-schema-schema) or [`warningSchema`](api/formik.md#warningschema-schema-schema) and your form has array validation requirements (like a min length) as well as nested array field requirements, displaying validation messages can be tricky. Formik/Yup will show the messages inside out. For example,
 
 ```js
 const schema = Yup.object().shape({
@@ -130,7 +130,7 @@ const schema = Yup.object().shape({
 });
 ```
 
-Since Yup and your custom validation function should always output error messages as strings, you'll need to sniff whether your nested error is an array or a string when you go to display it.
+Since Yup and your custom validation function should always output validation messages as strings, you'll need to sniff whether your nested message is an array or a string when you go to display it.
 
 So...to display `'Must have friends'` and `'Minimum of 3 friends'` (our example's array validation constraints)...
 
@@ -140,6 +140,9 @@ So...to display `'Must have friends'` and `'Minimum of 3 friends'` (our example'
 // within a `FieldArray`'s render
 const FriendArrayErrors = errors =>
   errors.friends ? <div>{errors.friends}</div> : null; // app will crash
+
+const FriendArrayWarnings = warnings =>
+  warnings.friends ? <div>{warnings.friends}</div> : null; // app will also crash
 ```
 
 **_Good_**
@@ -148,9 +151,12 @@ const FriendArrayErrors = errors =>
 // within a `FieldArray`'s render
 const FriendArrayErrors = errors =>
   typeof errors.friends === 'string' ? <div>{errors.friends}</div> : null;
+
+const FriendArrayWarnings = warnings =>
+  typeof warnings.friends === 'string' ? <div>{warnings.friends}</div> : null;
 ```
 
-For the nested field errors, you should assume that no part of the object is defined unless you've checked for it. Thus, you may want to do yourself a favor and make a custom `<ErrorMessage />` component that looks like this:
+For the nested field validation, you should assume that no part of the object is defined unless you've checked for it. Thus, you may want to do yourself a favor and make a custom `<ErrorMessage />` component that looks like this:
 
 ```jsx
 import { Field, getIn } from 'formik';
@@ -160,8 +166,11 @@ const ErrorMessage = ({ name }) => (
     name={name}
     render={({ form }) => {
       const error = getIn(form.errors, name);
+      const warning = getIn(form.warnings, name);
       const touch = getIn(form.touched, name);
-      return touch && error ? error : null;
+      return touch && error 
+        ? error 
+        : warning ? warning : null;
     }}
   />
 );

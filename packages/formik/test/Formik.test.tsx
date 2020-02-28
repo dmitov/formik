@@ -24,6 +24,7 @@ function Form({
   handleBlur,
   status,
   errors,
+  warnings,
   isSubmitting,
 }: FormikProps<Values>) {
   return (
@@ -37,6 +38,7 @@ function Form({
         data-testid="name-input"
       />
       {touched.name && errors.name && <div id="feedback">{errors.name}</div>}
+      {touched.name && warnings.name && <div id="warning">{warnings.name}</div>}
       {isSubmitting && <div id="submitting">Submitting</div>}
       {status && !!status.myStatusMessage && (
         <div id="statusMessage">{status.myStatusMessage}</div>
@@ -96,6 +98,7 @@ describe('<Formik>', () => {
     expect(props.touched).toEqual({});
     expect(props.values).toEqual(InitialValues);
     expect(props.errors).toEqual({});
+    expect(props.warnings).toEqual({});
     expect(props.dirty).toBe(false);
     expect(props.isValid).toBe(true);
     expect(props.submitCount).toBe(0);
@@ -216,6 +219,29 @@ describe('<Formik>', () => {
       });
     });
 
+    it('runs warns by default', async () => {
+      const warn = jest.fn(() => Promise.resolve());
+      const warningSchema = {
+        warn,
+      };
+      const { getByTestId, rerender } = renderFormik({
+        warn,
+        warningSchema,
+      });
+
+      fireEvent.change(getByTestId('name-input'), {
+        persist: noop,
+        target: {
+          name: 'name',
+          value: 'ian',
+        },
+      });
+      rerender();
+      await wait(() => {
+        expect(warn).toHaveBeenCalledTimes(2);
+      });
+    });
+
     it('does NOT run validations if validateOnChange is false', async () => {
       const validate = jest.fn(() => Promise.resolve());
       const validationSchema = {
@@ -237,6 +263,30 @@ describe('<Formik>', () => {
       rerender();
       await wait(() => {
         expect(validate).not.toHaveBeenCalled();
+      });
+    });
+
+    it('does NOT run warns if validateOnChange is false', async () => {
+      const warn = jest.fn(() => Promise.resolve());
+      const warningSchema = {
+        warn,
+      };
+      const { getByTestId, rerender } = renderFormik({
+        warn,
+        warningSchema,
+        validateOnChange: false,
+      });
+
+      fireEvent.change(getByTestId('name-input'), {
+        persist: noop,
+        target: {
+          name: 'name',
+          value: 'ian',
+        },
+      });
+      rerender();
+      await wait(() => {
+        expect(warn).not.toHaveBeenCalled();
       });
     });
   });
@@ -311,6 +361,21 @@ describe('<Formik>', () => {
       });
     });
 
+    it('runs warn by default', async () => {
+      const warn = jest.fn(noop);
+      const { getByTestId, rerender } = renderFormik({ warn });
+
+      fireEvent.blur(getByTestId('name-input'), {
+        target: {
+          name: 'name',
+        },
+      });
+      rerender();
+      await wait(() => {
+        expect(warn).toHaveBeenCalled();
+      });
+    });
+
     it('runs validations by default', async () => {
       const validate = jest.fn(() => Promise.resolve());
       const validationSchema = {
@@ -329,6 +394,27 @@ describe('<Formik>', () => {
       rerender();
       await wait(() => {
         expect(validate).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('runs warnings by default', async () => {
+      const warn = jest.fn(() => Promise.resolve());
+      const warningSchema = {
+        warn,
+      };
+      const { getByTestId, rerender } = renderFormik({
+        warn,
+        warningSchema,
+      });
+
+      fireEvent.blur(getByTestId('name-input'), {
+        target: {
+          name: 'name',
+        },
+      });
+      rerender();
+      await wait(() => {
+        expect(warn).toHaveBeenCalledTimes(2);
       });
     });
 
@@ -353,6 +439,27 @@ describe('<Formik>', () => {
       });
     });
 
+    it('runs warnings if validateOnBlur is true (default)', async () => {
+      const warn = jest.fn(() => Promise.resolve());
+      const warningSchema = {
+        warn,
+      };
+      const { getByTestId, rerender } = renderFormik({
+        warn,
+        warningSchema,
+      });
+
+      fireEvent.blur(getByTestId('name-input'), {
+        target: {
+          name: 'name',
+        },
+      });
+      rerender();
+      await wait(() => {
+        expect(warn).toHaveBeenCalledTimes(2);
+      });
+    });
+
     it('dost NOT run validations if validateOnBlur is false', async () => {
       const validate = jest.fn(() => Promise.resolve());
       const validationSchema = {
@@ -365,6 +472,20 @@ describe('<Formik>', () => {
       });
       rerender();
       await wait(() => expect(validate).not.toHaveBeenCalled());
+    });
+
+    it('dost NOT run warnings if validateOnBlur is false', async () => {
+      const warn = jest.fn(() => Promise.resolve());
+      const warningSchema = {
+        warn,
+      };
+      const { rerender } = renderFormik({
+        warn,
+        warningSchema,
+        validateOnBlur: false,
+      });
+      rerender();
+      await wait(() => expect(warn).not.toHaveBeenCalled());
     });
   });
 
@@ -473,6 +594,13 @@ describe('<Formik>', () => {
         expect(validate).toHaveBeenCalled();
       });
 
+      it('should call warn if present', () => {
+        const warn = jest.fn(() => ({}));
+        const { getByTestId } = renderFormik({ warn });
+        fireEvent.submit(getByTestId('form'));
+        expect(warn).toHaveBeenCalled();
+      });
+
       it('should submit the form if valid', async () => {
         const onSubmit = jest.fn();
         const validate = jest.fn(() => ({}));
@@ -489,6 +617,15 @@ describe('<Formik>', () => {
 
         fireEvent.submit(getByTestId('form'));
         expect(onSubmit).not.toBeCalled();
+      });
+
+      it('should submit the form even if there are warnings', () => {
+        const onSubmit = jest.fn();
+        const warn = jest.fn(() => ({ name: 'Warning!' }));
+        const { getByTestId } = renderFormik({ onSubmit, warn });
+
+        fireEvent.submit(getByTestId('form'));
+        expect(onSubmit).toBeCalled();
       });
 
       it('should not submit the form if validate function throws an error', async () => {
@@ -536,6 +673,15 @@ describe('<Formik>', () => {
         expect(validate).toHaveBeenCalled();
       });
 
+      it('should call warn if present', () => {
+        const warn = jest.fn(() => Promise.resolve({}));
+        const { getByTestId } = renderFormik({ warn });
+
+        fireEvent.submit(getByTestId('form'));
+        expect(warn).toHaveBeenCalled();
+      });
+
+
       it('should submit the form if valid', async () => {
         const onSubmit = jest.fn();
         const validate = jest.fn(() => Promise.resolve({}));
@@ -552,6 +698,16 @@ describe('<Formik>', () => {
 
         fireEvent.submit(getByTestId('form'));
         expect(onSubmit).not.toBeCalled();
+      });
+
+
+      it('should submit the form even if there are warnings', () => {
+        const onSubmit = jest.fn();
+        const warn = jest.fn(() => Promise.resolve({ name: 'Warning!' }));
+        const { getByTestId } = renderFormik({ onSubmit, warn });
+
+        fireEvent.submit(getByTestId('form'));
+        expect(onSubmit).toBeCalled();
       });
 
       it('should not submit the form if validate function rejects with an error', async () => {
@@ -575,7 +731,7 @@ describe('<Formik>', () => {
       });
     });
 
-    describe('with validationSchema (ASYNC)', () => {
+    describe('with validationSchema and warningSchema (ASYNC)', () => {
       it('should run validationSchema if present', async () => {
         const validate = jest.fn(() => Promise.resolve({}));
         const validationSchema = {
@@ -590,6 +746,20 @@ describe('<Formik>', () => {
         expect(validate).toHaveBeenCalled();
       });
 
+      it('should run warningSchema if present', async () => {
+        const warn = jest.fn(() => Promise.resolve({}));
+        const warningSchema = {
+          warn,
+        };
+        const { getByTestId } = renderFormik({
+          warn,
+          warningSchema,
+        });
+
+        fireEvent.submit(getByTestId('form'));
+        expect(warn).toHaveBeenCalled();
+      });
+
       it('should call validationSchema if it is a function and present', async () => {
         const validate = jest.fn(() => Promise.resolve({}));
         const validationSchema = () => ({
@@ -602,6 +772,20 @@ describe('<Formik>', () => {
 
         fireEvent.submit(getByTestId('form'));
         expect(validate).toHaveBeenCalled();
+      });
+
+      it('should call warningSchema if it is a function and present', async () => {
+        const warn = jest.fn(() => Promise.resolve({}));
+        const warningSchema = () => ({
+          warn,
+        });
+        const { getByTestId } = renderFormik({
+          warn,
+          warningSchema,
+        });
+
+        fireEvent.submit(getByTestId('form'));
+        expect(warn).toHaveBeenCalled();
       });
     });
 
@@ -742,11 +926,25 @@ describe('<Formik>', () => {
         expect(getProps().errors.name).toEqual('Required');
       });
 
+      it('setWarnings sets error object', () => {
+        const { getProps } = renderFormik<Values>();
+
+        getProps().setWarnings({ name: 'Maybe required' });
+        expect(getProps().warnings.name).toEqual('Maybe required');
+      });
+
       it('setFieldError sets error by key', () => {
         const { getProps } = renderFormik<Values>();
 
         getProps().setFieldError('name', 'Required');
         expect(getProps().errors.name).toEqual('Required');
+      });
+
+      it('setFieldWarning sets error by key', () => {
+        const { getProps } = renderFormik<Values>();
+
+        getProps().setFieldWarning('name', 'Maybe required');
+        expect(getProps().warnings.name).toEqual('Maybe required');
       });
 
       it('setStatus sets status object', () => {
@@ -1286,6 +1484,30 @@ describe('<Formik>', () => {
     });
   });
 
+  it('should merge validation warnings', async () => {
+    const warn = () => ({
+      users: [{ firstName: 'maybe required' }],
+    });
+    const warningSchema = Yup.object({
+      users: Yup.array().of(
+        Yup.object({
+          lastName: Yup.string().required('required'),
+        })
+      ),
+    });
+
+    const { getProps } = renderFormik({
+      initialValues: { users: [{ firstName: '', lastName: '' }] },
+      warn,
+      warningSchema,
+    });
+
+    await getProps().validateForm();
+    expect(getProps().warnings).toEqual({
+      users: [{ firstName: 'maybe required', lastName: 'maybe required' }],
+    });
+  });
+
   it('should not eat an error thrown by the validationSchema', async () => {
     const validationSchema = function() {
       throw new Error('broken validations');
@@ -1299,6 +1521,21 @@ describe('<Formik>', () => {
     expect(() => {
       getProps().validateForm();
     }).toThrow('broken validations');
+  });
+
+  it('should not eat a warning thrown by the warningSchema', async () => {
+    const warningSchema = function() {
+      throw new Error('broken warnings');
+    };
+
+    const { getProps } = renderFormik({
+      initialValues: { users: [{ firstName: '', lastName: '' }] },
+      warningSchema,
+    });
+
+    expect(() => {
+      getProps().validateForm();
+    }).toThrow('broken warnings');
   });
 
   it('exposes formikbag as imperative methods', () => {

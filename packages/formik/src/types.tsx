@@ -7,7 +7,7 @@ export interface FormikValues {
 }
 
 /**
- * An object containing error messages whose keys correspond to FormikValues.
+ * An object containing error and warning messages whose keys correspond to FormikValues.
  * Should always be an object of strings, but any is allowed to support i18n libraries.
  */
 export type FormikErrors<Values> = {
@@ -19,6 +19,7 @@ export type FormikErrors<Values> = {
     ? FormikErrors<Values[K]>
     : string;
 };
+
 
 /**
  * An object containing touched state of the form whose keys correspond to FormikValues.
@@ -41,6 +42,8 @@ export interface FormikState<Values> {
   values: Values;
   /** map of field names to specific error for that field */
   errors: FormikErrors<Values>;
+  /** map of field names to specific warn for that field */
+  warnings: FormikErrors<Values>;
   /** map of field names to whether the field has been touched */
   touched: FormikTouched<Values>;
   /** whether the form is currently submitting */
@@ -65,6 +68,8 @@ export interface FormikComputedProps<Values> {
   readonly initialValues: Values;
   /** The initial errors of the form */
   readonly initialErrors: FormikErrors<Values>;
+  /** The initial warnings of the form */
+  readonly initialWarnings: FormikErrors<Values>;
   /** The initial visited fields of the form */
   readonly initialTouched: FormikTouched<Values>;
   /** The initial status of the form */
@@ -89,6 +94,8 @@ export interface FormikHelpers<Values> {
   setFieldValue(field: string, value: any, shouldValidate?: boolean): void;
   /** Set error message of a form field directly */
   setFieldError(field: string, message: string): void;
+  /** Set warning message of a form field directly */
+  setFieldWarning(field: string, message: string): void;
   /** Set whether field has been touched directly */
   setFieldTouched(
     field: string,
@@ -191,6 +198,9 @@ export interface FormikConfig<Values> extends FormikSharedConfig {
   /** Initial object map of field names to specific error for that field */
   initialErrors?: FormikErrors<Values>;
 
+  /** Initial object map of field names to specific error for that field */
+  initialWarnings?: FormikErrors<Values>;
+
   /** Initial object map of field names to whether the field has been touched */
   initialTouched?: FormikTouched<Values>;
 
@@ -207,15 +217,26 @@ export interface FormikConfig<Values> extends FormikSharedConfig {
     formikHelpers: FormikHelpers<Values>
   ) => void | Promise<any>;
   /**
-   * A Yup Schema or a function that returns a Yup schema
+   * A Yup Schema or a function that returns a Yup schema for errors
    */
   validationSchema?: any | (() => any);
+
+  /**
+   * A Yup Schema or a function that returns a Yup schema for warnings
+   */
+  warningSchema?: any | (() => any);
 
   /**
    * Validation function. Must return an error object or promise that
    * throws an error object where that object keys map to corresponding value.
    */
   validate?: (values: Values) => void | object | Promise<FormikErrors<Values>>;
+
+  /**
+   * Warn function. Must return an warning object or promise that
+   * throws an warning object where that object keys map to corresponding value.
+   */
+  warn?: (values: Values) => void | object | Promise<FormikErrors<Values>>;
 
   /** Inner ref */
   innerRef?: (instance: any) => void;
@@ -242,7 +263,8 @@ export interface FormikRegistration {
  * State, handlers, and helpers made available to Formik's primitive components through context.
  */
 export type FormikContextType<Values> = FormikProps<Values> &
-  Pick<FormikConfig<Values>, 'validate' | 'validationSchema'>;
+  Pick<FormikConfig<Values>, 'validate' | 'validationSchema'> &
+  Pick<FormikConfig<Values>, 'warn' | 'warningSchema'>;
 
 export interface SharedRenderProps<T> {
   /**
@@ -280,6 +302,8 @@ export interface FieldMetaProps<Value> {
   initialTouched: boolean;
   /** Initial error message of the field */
   initialError?: string;
+  /** Initial warning message of the field */
+  initialWarning?: string;
 }
 
 /** Imperative handles to change a field's value, error and touched */
@@ -290,6 +314,8 @@ export interface FieldHelperProps<Value> {
   setTouched(value: boolean): void;
   /** Set the field's error value */
   setError(value: Value): void;
+  /** Set the field's warning value */
+  setWarning(value: Value): void;
 }
 
 /** Field input value, name, and event handlers */

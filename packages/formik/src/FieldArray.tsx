@@ -151,7 +151,8 @@ class FieldArrayInner<Values = {}> extends React.Component<
   updateArrayField = (
     fn: Function,
     alterTouched: boolean | Function,
-    alterErrors: boolean | Function
+    alterErrors: boolean | Function,
+    alterWarnings: boolean | Function
   ) => {
     const {
       name,
@@ -160,10 +161,11 @@ class FieldArrayInner<Values = {}> extends React.Component<
     } = this.props;
     setFormikState((prevState: FormikState<any>) => {
       let updateErrors = typeof alterErrors === 'function' ? alterErrors : fn;
+      let updateWarnings = typeof alterWarnings === 'function' ? alterErrors : fn;
       let updateTouched =
         typeof alterTouched === 'function' ? alterTouched : fn;
 
-      // values fn should be executed before updateErrors and updateTouched,
+      // values fn should be executed before updateErrors, updateWarnings and updateTouched,
       // otherwise it causes an error with unshift.
       let values = setIn(
         prevState.values,
@@ -174,12 +176,18 @@ class FieldArrayInner<Values = {}> extends React.Component<
       let fieldError = alterErrors
         ? updateErrors(getIn(prevState.errors, name))
         : undefined;
+      let feildWarning = alterWarnings
+        ? updateWarnings(getIn(prevState.warnings, name))
+        : undefined;
       let fieldTouched = alterTouched
         ? updateTouched(getIn(prevState.touched, name))
         : undefined;
 
       if (isEmptyArray(fieldError)) {
         fieldError = undefined;
+      }
+      if (isEmptyArray(feildWarning)) {
+        feildWarning = undefined;
       }
       if (isEmptyArray(fieldTouched)) {
         fieldTouched = undefined;
@@ -191,6 +199,9 @@ class FieldArrayInner<Values = {}> extends React.Component<
         errors: alterErrors
           ? setIn(prevState.errors, name, fieldError)
           : prevState.errors,
+        warnings: alterWarnings
+          ? setIn(prevState.warnings, name, fieldError)
+          : prevState.warnings,
         touched: alterTouched
           ? setIn(prevState.touched, name, fieldTouched)
           : prevState.touched,
@@ -205,6 +216,7 @@ class FieldArrayInner<Values = {}> extends React.Component<
         cloneDeep(value),
       ],
       false,
+      false,
       false
     );
 
@@ -214,6 +226,7 @@ class FieldArrayInner<Values = {}> extends React.Component<
     this.updateArrayField(
       (array: any[]) => swap(array, indexA, indexB),
       true,
+      true,
       true
     );
 
@@ -221,13 +234,14 @@ class FieldArrayInner<Values = {}> extends React.Component<
     this.swap(indexA, indexB);
 
   move = (from: number, to: number) =>
-    this.updateArrayField((array: any[]) => move(array, from, to), true, true);
+    this.updateArrayField((array: any[]) => move(array, from, to), true, true, true);
 
   handleMove = (from: number, to: number) => () => this.move(from, to);
 
   insert = (index: number, value: any) =>
     this.updateArrayField(
       (array: any[]) => insert(array, index, value),
+      (array: any[]) => insert(array, index, null),
       (array: any[]) => insert(array, index, null),
       (array: any[]) => insert(array, index, null)
     );
@@ -237,6 +251,7 @@ class FieldArrayInner<Values = {}> extends React.Component<
   replace = (index: number, value: any) =>
     this.updateArrayField(
       (array: any[]) => replace(array, index, value),
+      false,
       false,
       false
     );
@@ -249,6 +264,13 @@ class FieldArrayInner<Values = {}> extends React.Component<
     this.updateArrayField(
       (array: any[]) => {
         const arr = array ? [value, ...array] : [value];
+        if (length < 0) {
+          length = arr.length;
+        }
+        return arr;
+      },
+      (array: any[]) => {
+        const arr = array ? [null, ...array] : [null];
         if (length < 0) {
           length = arr.length;
         }
@@ -290,6 +312,7 @@ class FieldArrayInner<Values = {}> extends React.Component<
         return copy;
       },
       true,
+      true,
       true
     );
 
@@ -310,6 +333,7 @@ class FieldArrayInner<Values = {}> extends React.Component<
         }
         return tmp;
       },
+      true,
       true,
       true
     );
@@ -345,6 +369,8 @@ class FieldArrayInner<Values = {}> extends React.Component<
       children,
       name,
       formik: {
+        warn: _warn,
+        warningSchema: _warningSchema,
         validate: _validate,
         validationSchema: _validationSchema,
         ...restOfFormik

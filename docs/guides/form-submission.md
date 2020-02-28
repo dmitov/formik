@@ -17,7 +17,7 @@ To submit a form in Formik, you need to somehow fire off the provided `handleSub
 ### Validation
 
 - Set `isValidating` to `true`
-- Run all field-level validations, `validate`, and `validationSchema` asynchronously and deeply merge results
+- Run all field-level validations, `validate`, `warn`, `validationSchema` and `warningSchema` asynchronously and deeply merge results
 - Are there any errors?
   - Yes: Abort submission. Set `isValidating` to `false`, set `errors`, set `isSubmitting` to `false`
   - No: Set `isValidating` to `false`, proceed to "Submission"
@@ -54,5 +54,14 @@ Disable whatever is triggering submission if `isSubmitting` is `true`.
 <summary>How do I know when my form is validating before submit?</summary>
 
 If `isValidating` is `true` and `isSubmitting` is `true`.
+
+</details>
+
+<details>
+<summary>What is the difference between `warn` and `validate`?</summary>
+
+`warn` and `validate` (as well as `warningSchema` and `validationSchema`) are very
+similar in terms of implementation. The difference between both is that `warn` (and `warnSchema`) 
+do not restrict the form from being submit.
 
 </details>

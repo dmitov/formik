@@ -18,6 +18,7 @@ const Form: React.SFC<FormikProps<Values>> = ({
   setStatus,
   status,
   errors,
+  warnings,
   isSubmitting,
 }) => {
   return (
@@ -30,6 +31,7 @@ const Form: React.SFC<FormikProps<Values>> = ({
         name="name"
       />
       {touched.name && errors.name && <div id="feedback">{errors.name}</div>}
+      {touched.name && warnings.name && <div id="feedback">{warnings.name}</div>}
       {isSubmitting && <div id="submitting">Submitting</div>}
       <button
         id="statusButton"
@@ -76,12 +78,14 @@ describe('withFormik()', () => {
         name: 'jared',
       },
       initialErrors: {},
+      initialWarnings: {},
       initialTouched: {},
       values: {
         name: InitialValues.name,
       },
       dirty: false,
       errors: {},
+      warnings: {},
       handleBlur: expect.any(Function),
       handleChange: expect.any(Function),
       handleReset: expect.any(Function),
@@ -95,7 +99,9 @@ describe('withFormik()', () => {
       registerField: expect.any(Function),
       resetForm: expect.any(Function),
       setErrors: expect.any(Function),
+      setWarnings: expect.any(Function),
       setFieldError: expect.any(Function),
+      setFieldWarning: expect.any(Function),
       setFieldTouched: expect.any(Function),
       setFieldValue: expect.any(Function),
       setFormikState: expect.any(Function),
@@ -141,6 +147,16 @@ describe('withFormik()', () => {
     await wait(() => expect(validate).toHaveBeenCalled());
   });
 
+  it('calls warningSchema', async () => {
+    const warn = jest.fn(() => Promise.resolve());
+    const { getProps } = renderWithFormik({
+      warningSchema: { warn },
+    });
+
+    getProps().submitForm();
+    await wait(() => expect(warn).toHaveBeenCalled());
+  });
+
   it('calls validationSchema function with props', async () => {
     const validationSchema = jest.fn(() => Yup.object());
     const myProps = { my: 'prop' };
@@ -154,6 +170,21 @@ describe('withFormik()', () => {
     getProps().submitForm();
     await wait(() => expect(validationSchema).toHaveBeenCalledWith(myProps));
   });
+
+  it('calls warningSchema function with props', async () => {
+    const warningSchema = jest.fn(() => Yup.object());
+    const myProps = { my: 'prop' };
+    const { getProps } = renderWithFormik(
+      {
+        warningSchema,
+      },
+      myProps
+    );
+
+    getProps().submitForm();
+    await wait(() => expect(warningSchema).toHaveBeenCalledWith(myProps));
+  });
+
 
   it('calls handleSubmit with values, actions and custom props', async () => {
     const handleSubmit = jest.fn();
@@ -174,7 +205,9 @@ describe('withFormik()', () => {
           props: myProps,
           resetForm: expect.any(Function),
           setErrors: expect.any(Function),
+          setWarnings: expect.any(Function),
           setFieldError: expect.any(Function),
+          setFieldWarning: expect.any(Function),
           setFieldTouched: expect.any(Function),
           setFieldValue: expect.any(Function),
           setFormikState: expect.any(Function),

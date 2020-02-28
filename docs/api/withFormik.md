@@ -18,6 +18,7 @@ const MyForm = props => {
     values,
     touched,
     errors,
+    warnings,
     handleChange,
     handleBlur,
     handleSubmit,
@@ -32,6 +33,7 @@ const MyForm = props => {
         name="name"
       />
       {errors.name && touched.name && <div id="feedback">{errors.name}</div>}
+      {warnings.name && touched.name && <div id="warning">{warnings.name}</div>}
       <button type="submit">Submit</button>
     </form>
   );
@@ -49,6 +51,17 @@ const MyEnhancedForm = withFormik({
     }
 
     return errors;
+  },
+
+  // Custom sync warnings
+  warn: values => {
+    const warnings = {};
+
+    if (values.name.length < 10) {
+      warnings.name = 'We advise to use atleast 10 characters for your name';
+    }
+
+    return warnings;
   },
 
   handleSubmit: (values, { setSubmitting }) => {
@@ -100,7 +113,9 @@ passed to the wrapped component.
 - `props` (props passed to the wrapped component)
 - `resetForm`
 - `setErrors`
+- `setWarnings`
 - `setFieldError`
+- `setFieldWarning`
 - `setFieldTouched`
 - `setFieldValue`
 - `setStatus`
@@ -108,7 +123,7 @@ passed to the wrapped component.
 - `setTouched`
 - `setValues`
 
-Note: `errors`, `touched`, `status` and all event handlers are NOT
+Note: `errors`, `warnings` `touched`, `status` and all event handlers are NOT
 included in the `FormikBag`.
 
 > IMPORTANT: If `onSubmit` is async, then Formik will automatically set `isSubmitting` to `false` on your behalf once it has resolved. This means you do NOT need to call `formikBag.setSubmitting(false)` manually. However, if your `onSubmit` function is synchronous, then you need to call `setSubmitting(false)` on your own.
@@ -126,6 +141,12 @@ enable/disable a submit and reset buttons on initial mount.
 If this option is specified, then Formik will transfer its results into
 updatable form state and make these values available to the new component as
 `props.errors` initially. Useful for instantiating arbitrary error state into your form. As a reminder, `props.errors` will be overwritten as soon as validation runs. Formik will also reset `props.errors` to this initial value (and this function will be re-run) if the form is reset.
+
+### `mapPropsToWarnings?: (props: Props) => FormikErrors<Values>`
+
+If this option is specified, then Formik will transfer its results into
+updatable form state and make these values available to the new component as
+`props.warnings` initially. Useful for instantiating arbitrary warning state into your form. As a reminder, `props.warnings` will be overwritten as soon as validation runs. Formik will also reset `props.warnings` to this initial value (and this function will be re-run) if the form is reset.
 
 ### `mapPropsToStatus?: (props: Props) => any`
 
@@ -195,6 +216,50 @@ const validate = (values, props) => {
 };
 ```
 
+### `warn?: (values: Values, props: Props) => FormikErrors<Values> | Promise<any>`
+
+_Note: I suggest using `warningSchema` and Yup for validation. However,
+`warn` is a dependency-free, straightforward way to warn your forms._
+
+Warn the form's `values` with function. This function can either be:
+
+1.  Synchronous and return an `warnings` object.
+
+```js
+// Synchronous Warnings
+const warn = (values, props) => {
+  const warnings = {};
+
+  if (!values.email) {
+    warnings.email = 'Maybe required';
+  } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(values.email)) {
+    warnings.email = 'Maybe an invalid email address';
+  }
+
+  //...
+
+  return warnings;
+};
+```
+
+- Asynchronous and return a Promise that's resolves to an object containing `warnings`
+
+```js
+// Async Warnings
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const validate = (values, props) => {
+  return sleep(2000).then(() => {
+    const warnings = {};
+    if (['admin', 'null', 'god'].includes(values.username)) {
+      warnings.username = 'You are not one of us, but we let you continue';
+    }
+    // ...
+    return warnings;
+  });
+};
+```
+
 ### `validateOnBlur?: boolean`
 
 Default is `true`. Use this option to run validations on `blur` events. More
@@ -217,6 +282,12 @@ and/or `initialValues` change.
 [A Yup schema](https://github.com/jquense/yup) or a function that returns a Yup
 schema. This is used for validation. Errors are mapped by key to the inner
 component's `errors`. Its keys should match those of `values`.
+
+### `warningSchema?: Schema | ((props: Props) => Schema)`
+
+[A Yup schema](https://github.com/jquense/yup) or a function that returns a Yup
+schema. This is used for validation. Warnings are mapped by key to the inner
+component's `warnings`. Its keys should match those of `values`.
 
 ## Injected props and methods
 

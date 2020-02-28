@@ -39,8 +39,10 @@ type FormikMessage<Values> =
   | { type: 'SET_FIELD_VALUE'; payload: { field: string; value?: any } }
   | { type: 'SET_FIELD_TOUCHED'; payload: { field: string; value?: boolean } }
   | { type: 'SET_FIELD_ERROR'; payload: { field: string; value?: string } }
+  | { type: 'SET_FIELD_WARNING'; payload: { field: string; value?: string } }
   | { type: 'SET_TOUCHED'; payload: FormikTouched<Values> }
   | { type: 'SET_ERRORS'; payload: FormikErrors<Values> }
+  | { type: 'SET_WARNINGS'; payload: FormikErrors<Values> }
   | { type: 'SET_STATUS'; payload: any }
   | {
       type: 'SET_FORMIK_STATE';
@@ -67,6 +69,12 @@ function formikReducer<Values>(
       }
 
       return { ...state, errors: msg.payload };
+    case 'SET_WARNINGS':
+      if (isEqual(state.warnings, msg.payload)) {
+        return state;
+      }
+
+      return { ...state, warnings: msg.payload };
     case 'SET_STATUS':
       return { ...state, status: msg.payload };
     case 'SET_ISSUBMITTING':
@@ -87,6 +95,11 @@ function formikReducer<Values>(
       return {
         ...state,
         errors: setIn(state.errors, msg.payload.field, msg.payload.value),
+      };
+    case 'SET_FIELD_WARNING':
+      return {
+        ...state,
+        warnings: setIn(state.warnings, msg.payload.field, msg.payload.value),
       };
     case 'RESET_FORM':
       return { ...state, ...msg.payload };
@@ -119,6 +132,7 @@ function formikReducer<Values>(
 
 // Initial empty states // objects
 const emptyErrors: FormikErrors<unknown> = {};
+const emptyWarnings: FormikErrors<unknown> = {};
 const emptyTouched: FormikTouched<unknown> = {};
 
 // This is an object that contains a map of all registered fields
@@ -126,6 +140,7 @@ const emptyTouched: FormikTouched<unknown> = {};
 interface FieldRegistry {
   [field: string]: {
     validate: (value: any) => string | Promise<string> | undefined;
+    warn: (value: any) => string | Promise<string> | undefined;
   };
 }
 
@@ -147,6 +162,7 @@ export function useFormik<Values extends FormikValues = FormikValues>({
   };
   const initialValues = React.useRef(props.initialValues);
   const initialErrors = React.useRef(props.initialErrors || emptyErrors);
+  const initialWarnings = React.useRef(props.initialWarnings || emptyErrors);
   const initialTouched = React.useRef(props.initialTouched || emptyTouched);
   const initialStatus = React.useRef(props.initialStatus);
   const isMounted = React.useRef<boolean>(false);
@@ -174,6 +190,7 @@ export function useFormik<Values extends FormikValues = FormikValues>({
   >(formikReducer, {
     values: props.initialValues,
     errors: props.initialErrors || emptyErrors,
+    warnings: props.initialWarnings || emptyWarnings,
     touched: props.initialTouched || emptyTouched,
     status: props.initialStatus,
     isSubmitting: false,
@@ -213,6 +230,38 @@ export function useFormik<Values extends FormikValues = FormikValues>({
   );
 
   /**
+   * Run a promise-based Yup schema
+   */
+  const runPromiseSchema = (promise: Promise<FormikErrors<Values>>): Promise<FormikErrors<Values>> => {
+    return new Promise((resolve, reject) => {
+      promise.then(
+        () => {
+          resolve(emptyErrors);
+        },
+        (err: any) => {
+          // Yup will throw a validation error if validation fails. We catch those and
+          // resolve them into Formik errors. We can sniff if something is a Yup error
+          // by checking error.name.
+          // @see https://github.com/jquense/yup#validationerrorerrors-string--arraystring-value-any-path-string
+          if (err.name === 'ValidationError') {
+            resolve(yupToFormErrors(err));
+          } else {
+            // We throw any other errors
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn(
+                `Warning: An unhandled error was caught during validation in <Formik validationSchema />`,
+                err
+              );
+            }
+
+            reject(err);
+          }
+        }
+      );
+    });
+  }
+
+  /**
    * Run validation against a Yup schema and optionally run a function if successful
    */
   const runValidationSchema = React.useCallback(
@@ -225,34 +274,27 @@ export function useFormik<Values extends FormikValues = FormikValues>({
         field && schema.validateAt
           ? schema.validateAt(field, values)
           : validateYupSchema(values, schema);
-      return new Promise((resolve, reject) => {
-        promise.then(
-          () => {
-            resolve(emptyErrors);
-          },
-          (err: any) => {
-            // Yup will throw a validation error if validation fails. We catch those and
-            // resolve them into Formik errors. We can sniff if something is a Yup error
-            // by checking error.name.
-            // @see https://github.com/jquense/yup#validationerrorerrors-string--arraystring-value-any-path-string
-            if (err.name === 'ValidationError') {
-              resolve(yupToFormErrors(err));
-            } else {
-              // We throw any other errors
-              if (process.env.NODE_ENV !== 'production') {
-                console.warn(
-                  `Warning: An unhandled error was caught during validation in <Formik validationSchema />`,
-                  err
-                );
-              }
-
-              reject(err);
-            }
-          }
-        );
-      });
+      return runPromiseSchema(promise)
     },
     [props.validationSchema]
+  );
+
+  /**
+   * Run warnings validation against a Yup schema and optionally run a function if successful
+   */
+  const runWarningSchema = React.useCallback(
+    (values: Values, field?: string): Promise<FormikErrors<Values>> => {
+      const warningSchema = props.warningSchema;
+      const schema = isFunction(warningSchema)
+        ? warningSchema(field)
+        : warningSchema;
+      const promise =
+        field && schema.validateAt
+          ? schema.validateAt(field, values)
+          : validateYupSchema(values, schema);
+      return runPromiseSchema(promise)
+    },
+    [props.warningSchema]
   );
 
   const runSingleFieldLevelValidation = React.useCallback(
@@ -263,6 +305,16 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     },
     []
   );
+
+  const runSingleFieldLevelWarn = React.useCallback(
+    (field: string, value: void | string): Promise<string> => {
+      return new Promise(resolve =>
+        resolve(fieldRegistry.current[field].warn(value))
+      );
+    },
+    []
+  );
+
 
   const runFieldLevelValidations = React.useCallback(
     (values: Values): Promise<FormikErrors<Values>> => {
@@ -293,27 +345,65 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     [runSingleFieldLevelValidation]
   );
 
+  const runFieldLevelWarns = React.useCallback(
+    (values: Values): Promise<FormikErrors<Values>> => {
+      const fieldKeysWithWarn: string[] = Object.keys(
+        fieldRegistry.current
+      ).filter(f => isFunction(fieldRegistry.current[f].warn));
+
+      // Construct an array with all of the field warn functions
+      const fieldWarn: Promise<string>[] =
+        fieldKeysWithWarn.length > 0
+          ? fieldKeysWithWarn.map(f =>
+              runSingleFieldLevelWarn(f, getIn(values, f))
+            )
+          : [Promise.resolve('DO_NOT_DELETE_YOU_WILL_BE_FIRED')]; // use special case ;)
+
+      return Promise.all(fieldWarn).then((fieldWarnList: string[]) =>
+        fieldWarnList.reduce((prev, curr, index) => {
+          if (curr === 'DO_NOT_DELETE_YOU_WILL_BE_FIRED') {
+            return prev;
+          }
+          if (curr) {
+            prev = setIn(prev, fieldKeysWithWarn[index], curr);
+          }
+          return prev;
+        }, {})
+      );
+    },
+    [runSingleFieldLevelWarn]
+  );
+
   // Run all validations and return the result
   const runAllValidations = React.useCallback(
     (values: Values) => {
       return Promise.all([
         runFieldLevelValidations(values),
+        runFieldLevelWarns(values),
         props.validationSchema ? runValidationSchema(values) : {},
+        props.warningSchema ? runWarningSchema(values) : {},
         props.validate ? runValidateHandler(values) : {},
-      ]).then(([fieldErrors, schemaErrors, validateErrors]) => {
+      ]).then(([fieldErrors, fieldWarnings, schemaErrors, schemaWarnings, validateErrors]) => {
         const combinedErrors = deepmerge.all<FormikErrors<Values>>(
           [fieldErrors, schemaErrors, validateErrors],
           { arrayMerge }
         );
-        return combinedErrors;
+        const combindedWarnings = deepmerge.all<FormikErrors<Values>>(
+          [fieldWarnings, schemaWarnings],
+          { arrayMerge }
+        );
+        return { combinedErrors, combindedWarnings };
       });
     },
     [
       props.validate,
       props.validationSchema,
+      props.warningSchema,
       runFieldLevelValidations,
+      runFieldLevelWarns,
       runValidateHandler,
       runValidationSchema,
+      runWarningSchema,
     ]
   );
 
@@ -328,9 +418,10 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     (values: Values = state.values) => {
       return unstable_runWithPriority(LowPriority, () => {
         return runAllValidations(values)
-          .then(combinedErrors => {
+          .then((combinedErrors, combinedWarnings) => {
             if (!!isMounted.current) {
               dispatch({ type: 'SET_ERRORS', payload: combinedErrors });
+              dispatch({ type: 'SET_WARNINGS', payload: combinedWarnings });
             }
             return combinedErrors;
           })
@@ -351,11 +442,14 @@ export function useFormik<Values extends FormikValues = FormikValues>({
   const validateFormWithHighPriority = useEventCallback(
     (values: Values = state.values) => {
       dispatch({ type: 'SET_ISVALIDATING', payload: true });
-      return runAllValidations(values).then(combinedErrors => {
+      return runAllValidations(values).then((combinedErrors, combinedWarnings) => {
         if (!!isMounted.current) {
           dispatch({ type: 'SET_ISVALIDATING', payload: false });
           if (!isEqual(state.errors, combinedErrors)) {
             dispatch({ type: 'SET_ERRORS', payload: combinedErrors });
+          }
+          if (!isEqual(state.warnings, combinedWarnings)) {
+            dispatch({ type: 'SET_WARNINGS', payload: combinedWarnings });
           }
         }
         return combinedErrors;
@@ -381,6 +475,12 @@ export function useFormik<Values extends FormikValues = FormikValues>({
           : initialErrors.current
           ? initialErrors.current
           : props.initialErrors || {};
+      const warnings =
+        nextState && nextState.warnings
+          ? nextState.warnings
+          : initialWarnings.current
+          ? initialWarnings.current
+          : props.initialWarnings || {};
       const touched =
         nextState && nextState.touched
           ? nextState.touched
@@ -395,6 +495,7 @@ export function useFormik<Values extends FormikValues = FormikValues>({
           : props.initialStatus;
       initialValues.current = values;
       initialErrors.current = errors;
+      initialWarnings.current = warnings;
       initialTouched.current = touched;
       initialStatus.current = status;
 
@@ -404,6 +505,7 @@ export function useFormik<Values extends FormikValues = FormikValues>({
           payload: {
             isSubmitting: !!nextState && !!nextState.isSubmitting,
             errors,
+            warnings,
             touched,
             status,
             values,
@@ -466,6 +568,20 @@ export function useFormik<Values extends FormikValues = FormikValues>({
       });
     }
   }, [enableReinitialize, props.initialErrors]);
+
+  React.useEffect(() => {
+    if (
+      enableReinitialize &&
+      isMounted.current === true &&
+      !isEqual(initialWarnings.current, props.initialWarnings)
+    ) {
+      initialWarnings.current = props.initialWarnings || emptyErrors;
+      dispatch({
+        type: 'SET_ERRORS',
+        payload: props.initialWarnings || emptyErrors,
+      });
+    }
+  }, [enableReinitialize, props.initialWarnings]);
 
   React.useEffect(() => {
     if (
@@ -538,6 +654,44 @@ export function useFormik<Values extends FormikValues = FormikValues>({
         });
     }
 
+    if (isFunction(fieldRegistry.current[name].warn)) {
+      const value = getIn(state.values, name);
+      const maybePromise = fieldRegistry.current[name].warn(value);
+      if (isPromise(maybePromise)) {
+        // Only flip isValidating if the function is async.
+        dispatch({ type: 'SET_ISVALIDATING', payload: true });
+        return maybePromise
+          .then((x: any) => x)
+          .then((warning: string) => {
+            dispatch({
+              type: 'SET_FIELD_WARNING',
+              payload: { field: name, value: warning },
+            });
+            dispatch({ type: 'SET_ISVALIDATING', payload: false });
+          });
+      } else {
+        dispatch({
+          type: 'SET_FIELD_WARNING',
+          payload: {
+            field: name,
+            value: maybePromise as string | undefined,
+          },
+        });
+        return Promise.resolve(maybePromise as string | undefined);
+      }
+    } else if (props.warningSchema) {
+      dispatch({ type: 'SET_ISVALIDATING', payload: true });
+      return runWarningSchema(state.values, name)
+        .then((x: any) => x)
+        .then((error: any) => {
+          dispatch({
+            type: 'SET_FIELD_ERROR',
+            payload: { field: name, value: error[name] },
+          });
+          dispatch({ type: 'SET_ISVALIDATING', payload: false });
+        });
+    }
+
     return Promise.resolve();
   });
 
@@ -581,6 +735,16 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     (field: string, value: string | undefined) => {
       dispatch({
         type: 'SET_FIELD_ERROR',
+        payload: { field, value },
+      });
+    },
+    []
+  );
+
+  const setFieldWarning = React.useCallback(
+    (field: string, value: string | undefined) => {
+      dispatch({
+        type: 'SET_FIELD_WARNING',
         payload: { field, value },
       });
     },
@@ -851,7 +1015,9 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     validateForm: validateFormWithHighPriority,
     validateField,
     setErrors,
+    setWarnings,
     setFieldError,
+    setFieldWarning,
     setFieldTouched,
     setFieldValue,
     setStatus,
@@ -883,13 +1049,14 @@ export function useFormik<Values extends FormikValues = FormikValues>({
       return {
         value: getIn(state.values, name),
         error: getIn(state.errors, name),
+        warning: getIn(state.warnings, name),
         touched: !!getIn(state.touched, name),
         initialValue: getIn(initialValues.current, name),
         initialTouched: !!getIn(initialTouched.current, name),
         initialError: getIn(initialErrors.current, name),
       };
     },
-    [state.errors, state.touched, state.values]
+    [state.errors, state.warnings, state.touched, state.values]
   );
 
   const getFieldHelpers = React.useCallback(
@@ -898,9 +1065,10 @@ export function useFormik<Values extends FormikValues = FormikValues>({
         setValue: (value: any) => setFieldValue(name, value),
         setTouched: (value: boolean) => setFieldTouched(name, value),
         setError: (value: any) => setFieldError(name, value),
+        setWarning: (value: any) => setFieldWarning(name, value),
       };
     },
-    [setFieldValue, setFieldTouched, setFieldError]
+    [setFieldValue, setFieldTouched, setFieldError, setFieldWarning]
   );
 
   const getFieldProps = React.useCallback(
@@ -966,6 +1134,7 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     ...state,
     initialValues: initialValues.current,
     initialErrors: initialErrors.current,
+    initialWarnings: initialWarnings.current,
     initialTouched: initialTouched.current,
     initialStatus: initialStatus.current,
     handleBlur,
@@ -974,10 +1143,12 @@ export function useFormik<Values extends FormikValues = FormikValues>({
     handleSubmit,
     resetForm,
     setErrors,
+    setWarnings,
     setFormikState,
     setFieldTouched,
     setFieldValue,
     setFieldError,
+    setFieldWarning,
     setStatus,
     setSubmitting,
     setTouched,

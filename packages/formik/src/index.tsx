@@ -7,5 +7,6 @@ export * from './utils';
 export * from './types';
 export * from './connect';
 export * from './ErrorMessage';
+export * from './WarningMessage';
 export * from './FormikContext';
 export * from './FastField';

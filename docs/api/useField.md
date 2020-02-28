@@ -2,6 +2,7 @@
 id: useField
 title: useField()
 custom_edit_url: https://github.com/jaredpalmer/formik/edit/master/docs/api/useField.md
+original_id: useField
 ---
 
 `useField` is a custom React hook that will automagically help you hook up inputs to Formik. You can and should use it to build your own custom input primitives. There are 2 ways to use it.
@@ -140,7 +141,9 @@ An object that contains:
 An object that contains relevant computed metadata about a field. More specifically,
 
 - `error?: string` - The field's error message (plucked out of `errors`)
+- `warning?: string` - The field's warning message (plucked out of `warnings`)
 - `initialError?: string` - The field's initial error if the field is present in `initialErrors` (plucked out of `initialErrors`)
+- `initialWarning?: string` - The field's initial error if the field is present in `initialWarnings` (plucked out of `initialWarnings`)
 - `initialTouched: boolean` - The field's initial value if the field is present in `initialTouched` (plucked out of `initialTouched`)
 - `initialValue?: Value` - The field's initial value if the field is given a value in `initialValues` (plucked out of `initialValues`)
 - `touched: boolean` - Whether the field has been visited (plucked out of `touched`)
@@ -153,3 +156,4 @@ An object that contains helper functions which you can use to imperatively chang
 - `setValue(value: any): void` - A function to change the field's value
 - `setTouched(value: boolean): void` - A function to change the field's touched status
 - `setError(value: any): void` - A function to change the field's error value
+- `setWarning(value: any): void` - A function to change the field's warning value

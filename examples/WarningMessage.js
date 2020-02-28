@@ -1,5 +1,5 @@
 import React from 'react';
-import { Formik, Field, Form, ErrorMessage } from 'formik';
+import { Formik, Field, Form, WarningMessage } from 'formik';
 import * as Yup from 'yup';
 import { Debug } from './Debug';
 
@@ -7,21 +7,16 @@ import { Debug } from './Debug';
 // comes with special support for Yup by @jquense. It has a builder API like
 // React PropTypes / Hapi.js's Joi. You can define these inline or, you may want
 // to keep them separate so you can reuse schemas (e.g. address) across your application.
-const SignUpSchema = Yup.object().shape({
-  email: Yup.string()
-    .email('Invalid email address')
-    .required('Required'),
+const SignupWarningSchema = Yup.object().shape({
   firstName: Yup.string()
-    .min(2, 'Must be longer than 2 characters')
-    .max(20, 'Nice try, nobody has a first name that long')
-    .required('Required'),
+    .min(3, 'Maybe too short!'),
   lastName: Yup.string()
-    .min(2, 'Must be longer than 2 characters')
-    .max(20, 'Nice try, nobody has a last name that long')
-    .required('Required'),
+    .min(3, 'Maybe too short!'),
+  email: Yup.string()
+    .max(50, 'Maybe too long!'),
 });
 
-// <ErrorMessage /> will ONLY render when a field has an error and has been touched.
+// <WarningMessage /> will ONLY render when a field has an error and has been touched.
 const SignUp = () => (
   <div>
     <h1>Sign up</h1>
@@ -31,7 +26,7 @@ const SignUp = () => (
         firstName: '',
         lastName: '',
       }}
-      validationSchema={SignUpSchema}
+      warningSchema={SignupWarningSchema}
       onSubmit={values => {
         setTimeout(() => {
           alert(JSON.stringify(values, null, 2));
@@ -41,24 +36,24 @@ const SignUp = () => (
         <Form>
           <label htmlFor="firstName">First Name</label>
           <Field name="firstName" placeholder="Jane" type="text" />
-          <ErrorMessage
+          <WarningMessage
             name="firstName"
             component="div"
-            className="field-error"
+            className="field-warning"
           />
 
           <label htmlFor="lastName">Last Name</label>
           <Field name="lastName" placeholder="Doe" type="text" />
-          <ErrorMessage name="lastName">
+          <WarningMessage name="lastName">
             {(msg /** this is the same as the above */) => (
-              <div className="field-error">{msg}</div>
+              <div className="field-warning">{msg}</div>
             )}
-          </ErrorMessage>
+          </WarningMessage>
 
           <label htmlFor="email">Email</label>
           <Field name="email" placeholder="jane@acme.com" type="email" />
           {/* This will render a string */}
-          <ErrorMessage name="email" className="field-error" />
+          <WarningMessage name="email" className="field-warning" />
 
           <button type="submit">Submit</button>
           <Debug />

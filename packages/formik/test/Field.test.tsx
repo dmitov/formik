@@ -298,6 +298,23 @@ describe('Field / FastField', () => {
       });
     });
 
+    cases('calls warn during onChange if present', async renderField => {
+      const warn = jest.fn();
+      const { getByTestId, rerender } = renderField({
+        warn,
+        component: 'input',
+      });
+      rerender();
+      fireEvent.change(getByTestId('name-input'), {
+        target: { name: 'name', value: 'hello' },
+      });
+
+      rerender();
+      await wait(() => {
+        expect(warn).toHaveBeenCalled();
+      });
+    });
+
     cases(
       'does NOT call validate during onChange if validateOnChange is set to false',
       async renderField => {
@@ -317,6 +334,25 @@ describe('Field / FastField', () => {
       }
     );
 
+    cases(
+      'does NOT call warn during onChange if validateOnChange is set to false',
+      async renderField => {
+        const warn = jest.fn();
+        const { getByTestId, rerender } = renderField(
+          { warn, component: 'input' },
+          { validateOnChange: false }
+        );
+        rerender();
+        fireEvent.change(getByTestId('name-input'), {
+          target: { name: 'name', value: 'hello' },
+        });
+        rerender();
+        await wait(() => {
+          expect(warn).not.toHaveBeenCalled();
+        });
+      }
+    );
+
     cases('calls validate during onBlur if present', async renderField => {
       const validate = jest.fn();
       const { getByTestId, rerender } = renderField({
@@ -330,6 +366,22 @@ describe('Field / FastField', () => {
       rerender();
       await wait(() => {
         expect(validate).toHaveBeenCalled();
+      });
+    });
+
+    cases('calls warn during onBlur if present', async renderField => {
+      const warn = jest.fn();
+      const { getByTestId, rerender } = renderField({
+        warn,
+        component: 'input',
+      });
+      rerender();
+      fireEvent.blur(getByTestId('name-input'), {
+        target: { name: 'name' },
+      });
+      rerender();
+      await wait(() => {
+        expect(warn).toHaveBeenCalled();
       });
     });
 
@@ -353,6 +405,25 @@ describe('Field / FastField', () => {
     );
 
     cases(
+      'does NOT call warn during onBlur if validateOnBlur is set to false',
+      async renderField => {
+        const warn = jest.fn();
+        const { getByTestId, rerender } = renderField(
+          { warn, component: 'input' },
+          { validateOnBlur: false }
+        );
+
+        rerender();
+        fireEvent.blur(getByTestId('name-input'), {
+          target: { name: 'name' },
+        });
+        rerender();
+
+        await wait(() => expect(warn).not.toHaveBeenCalled());
+      }
+    );
+
+    cases(
       'runs validation when validateField is called (SYNC)',
       async renderField => {
         const validate = jest.fn(() => 'Error!');
@@ -366,6 +437,24 @@ describe('Field / FastField', () => {
         await wait(() => {
           expect(validate).toHaveBeenCalled();
           expect(getFormProps().errors.name).toBe('Error!');
+        });
+      }
+    );
+
+    cases(
+      'runs warn when validateField is called (SYNC)',
+      async renderField => {
+        const warn = jest.fn(() => 'Warning!');
+        const { getFormProps, rerender } = renderField({
+          warn,
+          component: 'input',
+        });
+        rerender();
+        getFormProps().validateField('name');
+        rerender();
+        await wait(() => {
+          expect(warn).toHaveBeenCalled();
+          expect(getFormProps().warnings.name).toBe('Warning!');
         });
       }
     );
@@ -407,6 +496,31 @@ describe('Field / FastField', () => {
         await wait(() =>
           expect(getFormProps().errors).toEqual({
             name: errorMessage,
+          })
+        );
+      }
+    );
+
+    cases(
+      'runs warningSchema validation when validateField is called',
+      async renderField => {
+        const warningMessage = 'Name is recommended to be atleast 100 characters in length';
+
+        const warningSchema = Yup.object({
+          name: Yup.string().min(100, warningMessage),
+        });
+        const { getFormProps, rerender } = renderField(
+          {},
+          { warningSchema }
+        );
+
+        rerender();
+
+        getFormProps().validateField('name');
+
+        await wait(() =>
+          expect(getFormProps().errors).toEqual({
+            name: warningMessage,
           })
         );
       }

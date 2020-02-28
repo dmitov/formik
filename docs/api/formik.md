@@ -35,6 +35,7 @@ const BasicExample = () => (
             name="name"
           />
           {props.errors.name && <div id="feedback">{props.errors.name}</div>}
+          {props.warnings.name && <div id="feedback">{props.warnings.name}</div>}
           <button type="submit">Submit</button>
         </form>
       )}
@@ -76,6 +77,15 @@ keys and shape will match your schema exactly. Internally, Formik transforms raw
 [Yup validation errors](https://github.com/jquense/yup#validationerrorerrors-string--arraystring-value-any-path-string)
 on your behalf. If you are using `validate`, then that function will determine
 the `errors` objects shape.
+
+#### `warnings: { [field: string]: string }`
+
+Form validation warnings. Should match the shape of your form's `values` defined
+in `initialValues`. If you are using `warningSchema` (which you should be),
+keys and shape will match your schema exactly. Internally, Formik transforms raw
+[Yup validation errors](https://github.com/jquense/yup#validationerrorerrors-string--arraystring-value-any-path-string)
+on your behalf. If you are using `warn`, then that function will determine
+the `warnings` objects shape.
 
 #### `handleBlur: (e: any) => void`
 
@@ -120,10 +130,19 @@ Imperatively reset the form. If `nextInitialState` is specified, Formik will set
 
 Set `errors` imperatively.
 
+#### `setWarnings: (fields: { [field: string]: string }) => void`
+
+Set `warnings` imperatively.
+
 #### `setFieldError: (field: string, errorMsg: string) => void`
 
 Set the error message of a field imperatively. `field` should match the key of
 `errors` you wish to update. Useful for creating custom input error handlers.
+
+#### `setFieldWarning: (field: string, warningMgs: string) => void`
+
+Set the warning message of a field imperatively. `field` should match the key of
+`warnings` you wish to update. Useful for creating custom input warning handlers.
 
 #### `setFieldTouched: (field: string, isTouched?: boolean, shouldValidate?: boolean) => void`
 
@@ -200,6 +219,7 @@ const ContactForm = ({
   handleBlur,
   values,
   errors,
+  warnings,
 }) => (
   <form onSubmit={handleSubmit}>
     <input
@@ -210,6 +230,7 @@ const ContactForm = ({
       name="name"
     />
     {errors.name && <div>{errors.name}</div>}
+    {warnings.name && <div>{warnings.name}</div>}
     <button type="submit">Submit</button>
   </form>
 );
@@ -333,7 +354,7 @@ Your form submission handler. It is passed your forms `values` and the
 with names that start with `set<Thing>` + `resetForm`) and any props that were
 passed to the wrapped component.
 
-Note: `errors`, `touched`, `status` and all event handlers are NOT
+Note: `errors`, `warnings`, `touched`, `status` and all event handlers are NOT
 included in the `FormikBag`.
 
 > IMPORTANT: If `onSubmit` is async, then Formik will automatically set `isSubmitting` to `false` on your behalf once it has resolved. This means you do NOT need to call `formikBag.setSubmitting(false)` manually. However, if your `onSubmit` function is synchronous, then you need to call `setSubmitting(false)` on your own.
@@ -348,7 +369,7 @@ Validate the form's `values` with function. This function can either be:
 1.  Synchronous and return an `errors` object.
 
 ```js
-// Synchronous validation
+// Synchronous Validation
 const validate = values => {
   const errors = {};
 
@@ -382,6 +403,50 @@ const validate = values => {
 };
 ```
 
+### `warn?: (values: Values, props: Props) => FormikErrors<Values> | Promise<any>`
+
+_Note: I suggest using `warningSchema` and Yup for validation. However,
+`warn` is a dependency-free, straightforward way to warn your forms._
+
+Warn the form's `values` with function. This function can either be:
+
+1.  Synchronous and return an `warnings` object.
+
+```js
+// Synchronous Warnings
+const warn = (values, props) => {
+  const warnings = {};
+
+  if (!values.email) {
+    warnings.email = 'Maybe required';
+  } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(values.email)) {
+    warnings.email = 'Maybe an invalid email address';
+  }
+
+  //...
+
+  return warnings;
+};
+```
+
+- Asynchronous and return a Promise that's resolves to an object containing `warnings`
+
+```js
+// Async Warnings
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const validate = (values, props) => {
+  return sleep(2000).then(() => {
+    const warnings = {};
+    if (['admin', 'null', 'god'].includes(values.username)) {
+      warnings.username = 'You are not one of us, but we let you continue';
+    }
+    // ...
+    return warnings;
+  });
+};
+```
+
 ### `validateOnBlur?: boolean`
 
 Default is `true`. Use this option to run validations on `blur` events. More
@@ -404,3 +469,9 @@ and/or `initialValues` change.
 [A Yup schema](https://github.com/jquense/yup) or a function that returns a Yup
 schema. This is used for validation. Errors are mapped by key to the inner
 component's `errors`. Its keys should match those of `values`.
+
+### `warningSchema?: Schema | (() => Schema)`
+
+[A Yup schema](https://github.com/jquense/yup) or a function that returns a Yup
+schema. This is used for validation. Warnings are mapped by key to the inner
+component's `warnings`. Its keys should match those of `values`.

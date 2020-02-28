@@ -20,12 +20,12 @@ There are 2 ways to do form-level validation with Formik:
 - `<Formik validate>` and `withFormik({ validate: ... })`
 - `<Formik validationSchema>` and `withFormik({ validationSchema: ... })`
 
-#### `validate`
+#### `validate` and `warn`
 
-`<Formik>` and `withFormik()` take prop/option called `validate` that accepts either a synchronous or asynchronous function.
+`<Formik>` and `withFormik()` take props/options called `validate` and `warn` that accepts either a synchronous or asynchronous function.
 
 ```js
-// Synchronous validation
+// Synchronous Validation
 const validate = (values, props /* only available when using withFormik */) => {
   const errors = {};
 
@@ -53,11 +53,41 @@ const validate = (values, props /* only available when using withFormik */) => {
     return errors;
   });
 };
+
+// Synchronous Warn
+const warn = (values, props /* only available when using withFormik */) => {
+  const warnings = {};
+
+  if (!values.email) {
+    warnings.email = 'Maybe required';
+  } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(values.email)) {
+    warnings.email = 'Maybe an invalid email address';
+  }
+
+  //...
+
+  return warnings;
+};
+
+// Async Validation
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const warn = (values, props /* only available when using withFormik */) => {
+  return sleep(2000).then(() => {
+    const warnings = {};
+    if (['admin', 'null', 'god'].includes(values.username)) {
+      warnings.username = 'You are not one of us, but we let you continue';
+    }
+    // ...
+    return warnings;
+  });
+};
 ```
+As you can see both `warn` and `validate` are identical in terms of implementation.
 
-For more information about `<Formik validate>`, see the API reference.
+For more information about `<Formik validate>` and `<Formik warn>`, see the API reference.
 
-#### `validationSchema`
+#### `validationSchema` and `warningSchema`
 
 As you can see above, validation is left up to you. Feel free to write your own
 validators or use a 3rd party library. At The Palmer Group, we use
@@ -65,7 +95,7 @@ validators or use a 3rd party library. At The Palmer Group, we use
 API that's pretty similar to [Joi](https://github.com/hapijs/joi) and
 [React PropTypes](https://github.com/facebook/prop-types) but is small enough
 for the browser and fast enough for runtime usage. Because we ❤️ Yup sooo
-much, Formik has a special config option / prop for Yup object schemas called `validationSchema` which will automatically transform Yup's validation errors into a pretty object whose keys match `values` and `touched`. This symmetry makes it easy to manage business logic around error messages.
+much, Formik has a special config options / props for Yup object schemas called `validationSchema` and `warningSchema` which will automatically transform Yup's validation validation messages into pretty objects whose keys match `values` and `touched`. This symmetry makes it easy to manage business logic around error messages.
 
 To add Yup to your project, install it from NPM.
 
@@ -79,7 +109,7 @@ import React from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
-const SignupSchema = Yup.object().shape({
+const SignupValidationSchema = Yup.object().shape({
   firstName: Yup.string()
     .min(2, 'Too Short!')
     .max(50, 'Too Long!')
@@ -93,7 +123,14 @@ const SignupSchema = Yup.object().shape({
     .required('Required'),
 });
 
-export const ValidationSchemaExample = () => (
+const SignupWarningSchema = Yup.object().shape({
+  firstName: Yup.string()
+    .min(3, 'Maybe too short!'),
+  email: Yup.string()
+    .max(50, 'Maybe too long!'),
+});
+
+export const ValidationAndWarningSchemaExample = () => (
   <div>
     <h1>Signup</h1>
     <Formik
@@ -102,7 +139,8 @@ export const ValidationSchemaExample = () => (
         lastName: '',
         email: '',
       }}
-      validationSchema={SignupSchema}
+      validationSchema={SignupValidationSchema}
+      warningSchema={SignupWarningSchema}
       onSubmit={values => {
         // same shape as initial values
         console.log(values);
@@ -114,12 +152,16 @@ export const ValidationSchemaExample = () => (
           {errors.firstName && touched.firstName ? (
             <div>{errors.firstName}</div>
           ) : null}
+          {warnings.firstName && touched.firstName ? (
+            <div>{warnings.firstName}</div>
+          ) : null}
           <Field name="lastName" />
           {errors.lastName && touched.lastName ? (
             <div>{errors.lastName}</div>
           ) : null}
           <Field name="email" type="email" />
           {errors.email && touched.email ? <div>{errors.email}</div> : null}
+          {warnings.email && touched.email ? <div>{warnings.email}</div> : null}
           <button type="submit">Submit</button>
         </Form>
       )}
@@ -128,15 +170,15 @@ export const ValidationSchemaExample = () => (
 );
 ```
 
-For more information about `<Formik validationSchema>`, see the API reference.
+For more information about `<Formik validationSchema>` and `<Formik warningSchema>`, see the API reference.
 
 ### Field-level Validation
 
-#### `validate`
+#### `validate` and `warn`
 
-Formik supports field-level validation via the `<Field>`/`<FastField>` components' `validate` prop. This function can be synchronous or asynchronous (return a Promise). It will run after any `onChange` and `onBlur` by default. This behavior can be altered at the top level `<Formik/>` component using the `validateOnChange` and `validateOnBlur` props respectively. In addition to change/blur, all field-level validations are run at the beginning of a submission attempt and then the results are deeply merged with any top-level validation results.
+Formik supports field-level validation via the `<Field>`/`<FastField>` components' `validate` and `warn` props. These are functions and can be synchronous or asynchronous (return a Promise). They will run after any `onChange` and `onBlur` by default. This behavior can be altered at the top level `<Formik/>` component using the `validateOnChange` and `validateOnBlur` props respectively. In addition to change/blur, all field-level validations are run at the beginning of a submission attempt and then the results are deeply merged with any top-level validation results.
 
-> Note: The `<Field>/<FastField>` components' `validate` function will only be executed on mounted fields. That is to say, if any of your fields unmount during the flow of your form (e.g. Material-UI's `<Tabs>` unmounts the previous `<Tab>` your user was on), those fields will not be validated during form validation/submission.
+> Note: The `<Field>/<FastField>` components' `validate` and `warn` functions will only be executed on mounted fields. That is to say, if any of your fields unmount during the flow of your form (e.g. Material-UI's `<Tabs>` unmounts the previous `<Tab>` your user was on), those fields will not be validated during form validation/submission.
 
 ```jsx
 import React from 'react';
@@ -152,6 +194,14 @@ function validateEmail(value) {
   return error;
 }
 
+function warnEmail(value) {
+  let warning;
+  if (value.length < 5) {
+    warning = 'Your email looks too short';
+  }
+  return warning;
+}
+
 function validateUsername(value) {
   let error;
   if (value === 'admin') {
@@ -160,7 +210,15 @@ function validateUsername(value) {
   return error;
 }
 
-export const FieldLevelValidationExample = () => (
+function warnUsername(value) {
+  let warning;
+  if (value === 'god') {
+    warning = 'Are you sure it is you?';
+  }
+  return warning;
+}
+
+export const FieldLevelValidationAndWarningExample = () => (
   <div>
     <h1>Signup</h1>
     <Formik
@@ -173,13 +231,15 @@ export const FieldLevelValidationExample = () => (
         console.log(values);
       }}
     >
-      {({ errors, touched, isValidating }) => (
+      {({ errors, warnings, touched, isValidating }) => (
         <Form>
-          <Field name="email" validate={validateEmail} />
+          <Field name="email" validate={validateEmail} warn={warnEmail} />
           {errors.email && touched.email && <div>{errors.email}</div>}
+          {warnings.email && touched.email && <div>{warnings.email}</div>}
 
-          <Field name="username" validate={validateUsername} />
+          <Field name="username" validate={validateUsername} warn={warnUsername} />
           {errors.username && touched.username && <div>{errors.username}</div>}
+          {warnings.username && touched.username && <div>{warnings.username}</div>}
 
           <button type="submit">Submit</button>
         </Form>

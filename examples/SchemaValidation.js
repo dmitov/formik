@@ -1,5 +1,5 @@
 import React from 'react';
-import { Formik, Field, Form, ErrorMessage } from 'formik';
+import { Formik, Field, Form, ErrorMessage, WarningMessage } from 'formik';
 import * as Yup from 'yup';
 import { Debug } from './Debug';
 
@@ -7,7 +7,7 @@ import { Debug } from './Debug';
 // comes with special support for Yup by @jquense. It has a builder API like
 // React PropTypes / Hapi.js's Joi. You can define these inline or, you may want
 // to keep them separate so you can reuse schemas (e.g. address) across your application.
-const SignUpSchema = Yup.object().shape({
+const SignupValidationSchema = Yup.object().shape({
   email: Yup.string()
     .email('Invalid email address')
     .required('Required'),
@@ -21,6 +21,13 @@ const SignUpSchema = Yup.object().shape({
     .required('Required'),
 });
 
+const SignupWarningSchema = Yup.object().shape({
+  firstName: Yup.string()
+    .min(3, 'Maybe too short!'),
+  email: Yup.string()
+    .max(50, 'Maybe too long!'),
+});
+
 const SignUp = () => (
   <div>
     <h1>Sign up</h1>
@@ -30,7 +37,8 @@ const SignUp = () => (
         firstName: '',
         lastName: '',
       }}
-      validationSchema={SignUpSchema}
+      validationSchema={SignupValidationSchema}
+      warningSchema={SignupWarningSchema}
       onSubmit={values => {
         setTimeout(() => {
           alert(JSON.stringify(values, null, 2));
@@ -46,6 +54,11 @@ const SignUp = () => (
             component="div"
             className="field-error"
           />
+          <WarningMessage
+            name="firstName"
+            component="div"
+            className="field-warning"
+          />
 
           <label htmlFor="lastName">Last Name</label>
           <Field name="lastName" placeholder="Doe" type="text" />
@@ -58,6 +71,7 @@ const SignUp = () => (
           <label htmlFor="email">Email</label>
           <Field name="email" placeholder="jane@acme.com" type="email" />
           <ErrorMessage name="email" component="div" className="field-error" />
+          <WarningMessage name="email" component="div" className="field-warning" />
 
           <button type="submit">Submit</button>
           <Debug />

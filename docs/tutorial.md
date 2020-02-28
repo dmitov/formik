@@ -309,11 +309,72 @@ const SignupForm = () => {
 
 `formik.errors` is populated via the custom validation function. By default, Formik will validate after each keystroke (change event), each input's blur event, as well as prior to submission. It will only proceed with executing the `onSubmit` function we passed to `useFormik()` if there are no errors (i.e. if our validation function returned `{}`).
 
+The other part of validation, the more informative one is `warnings`. They are just like `errors` object, with the one difference that they do not restrict the form from being submitted. Think of them like informational messages based on your users input. Everything else that applies to `formik.errors` also applies to `formik.warnings`. Let's see an example:
+
+```jsx
+import React from 'react';
+import { useFormik } from 'formik';
+
+// A custom warning function. This must return an object
+// which keys are symmetrical to our values/initialValues
+const warn = values => {
+  const warnings = {};
+  if (values.name.length > 100) {
+    warnings.name = 'Your name looks too long, you should be in the Guinness Records';
+  }
+
+  if (values.age < 18) {
+    warnings.age = 'You are young little fella, we might restrict some of our features until you turn 18';
+  }
+
+  return warnings;
+};
+
+const ProfileForm = () => {
+  // Pass the useFormik() hook initial form values and a submit function that will
+  // be called when the form is submitted
+  const formik = useFormik({
+    initialValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+    },
+    warn,
+    onSubmit: values => {
+      alert(JSON.stringify(values, null, 2));
+    },
+  });
+  return (
+    <form onSubmit={formik.handleSubmit}>
+      <label htmlFor="name">Name</label>
+      <input
+        id="name"
+        name="name"
+        type="text"
+        onChange={formik.handleChange}
+        value={formik.values.name}
+      />
+      {formik.warnings.name ? <div>{formik.warnings.name}</div> : null}
+      <label htmlFor="age">Age</label>
+      <input
+        id="age"
+        name="age"
+        type="number"
+        onChange={formik.handleChange}
+        value={formik.values.age}
+      />
+      {formik.warnings.age ? <div>{formik.warnings.age}</div> : null}
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
+
 ## Visited fields
 
-While our form works, and our users see each error, it's not a great user experience for them. Since our validation function runs on each keystroke against the _entire_ form's `values`, our `errors` object contains _all_ validation errors at any given moment. In our component, we are just checking if an error exists and then immediately showing it to the user. This is awkward since we're going to show error messages for fields that the user hasn't even visited yet. Most of the time, we only want to show a field's error message _after_ our user is done typing in that field.
+While our form works, and our users see each error or warning, it's not a great user experience for them. Since our validation function runs on each keystroke against the _entire_ form's `values`, our `errors` and `warnings` object contains _all_ validation messages at any given moment. In our component, we are just checking if an error or warning exists and then immediately showing it to the user. This is awkward since we're going to show validation messages for fields that the user hasn't even visited yet. Most of the time, we only want to show a field's validation message _after_ our user is done typing in that field.
 
-Like `errors` and `values`, Formik can keep track of which fields have been visited. It stores this information in an object called `touched` that also mirrors the shape of `values`/`initialValues`, but each key can only be a boolean `true`/`false`.
+Like `errors`, `warnings` and `values`, Formik can keep track of which fields have been visited. It stores this information in an object called `touched` that also mirrors the shape of `values`/`initialValues`, but each key can only be a boolean `true`/`false`.
 
 To take advantage of `touched`, we can pass `formik.handleBlur` to each input's `onBlur` prop. This function works similarly to `formik.handleChange` in that it uses the `name` attribute to figure out which field to update.
 
@@ -483,7 +544,7 @@ const SignupForm = () => {
 
 As you can see above, validation is left up to you. Feel free to write your own validators or use a 3rd-party helper library. Formik's authors/a large portion of its users use [Jason Quense](https://github.com/jquense)'s library [Yup](https://github.com/jquense/yup) for object schema validation. Yup has an API that's similar to [Joi](https://github.com/hapijs/joi) / [React PropTypes](https://github.com/facebook/prop-types) but is also small enough for the browser and fast enough for runtime usage. You can try it out here with this [REPL](https://runkit.com/jquense/yup).
 
-Since Formik authors/users _love_ Yup so much, Formik has a special configuration option / prop for Yup called `validationSchema` which will automatically transform Yup's validation errors messages into a pretty object whose keys match `values`/`initialValues`/`touched` (just like any custom validation function would have to). Anyways, you can install Yup from NPM/yarn like so...
+Since Formik authors/users _love_ Yup so much, Formik has a special configuration options / props for Yup called `validationSchema` and `warningSchema` which will automatically transform Yup's validation errors messages into a pretty object whose keys match `values`/`initialValues`/`touched` (just like any custom validation function would have to). Anyways, you can install Yup from NPM/yarn like so...
 
 ```bash
 npm install yup --save
@@ -493,7 +554,7 @@ npm install yup --save
 yarn add yup
 ```
 
-To see how Yup works, let's get rid of our custom validation function `validate` and re-write our validation with Yup and `validationSchema`:
+To see how Yup works, let's get rid of our custom validation function `validate` and re-write our validation with Yup and `validationSchema`/`warningSchema`:
 
 ```jsx
 import React from 'react';
@@ -518,6 +579,12 @@ const SignupForm = () => {
         .email('Invalid email address')
         .required('Required'),
     }),
+    warningSchema: Yup.object().shape({
+      firstName: Yup.string().min(3),
+      email: Yup.string()
+          .email()
+          .min(10),
+    }),
     onSubmit: values => {
       alert(JSON.stringify(values, null, 2));
     },
@@ -535,6 +602,9 @@ const SignupForm = () => {
       />
       {formik.touched.firstName && formik.errors.firstName ? (
         <div>{formik.errors.firstName}</div>
+      ) : null}
+      {formik.touched.firstName && formik.warnings.firstName ? (
+        <div>{formik.warnings.firstName}</div>
       ) : null}
       <label htmlFor="lastName">Last Name</label>
       <input
@@ -559,6 +629,9 @@ const SignupForm = () => {
       />
       {formik.touched.email && formik.errors.email ? (
         <div>{formik.errors.email}</div>
+      ) : null}
+      {formik.touched.email && formik.warnings.email ? (
+        <div>{formik.warnings.email}</div>
       ) : null}
       <button type="submit">Submit</button>
     </form>
@@ -935,8 +1008,8 @@ As you can see above, `useField()` gives us the ability to connect any kind inpu
 
 Congratulations! You've created a signup form with Formik that:
 
-- Has complex validation logic and rich error messages
-- Properly displays errors messages to the user at the correct time (after they have blurred a field)
+- Has complex validation logic and rich error/warning messages
+- Properly displays validation messages to the user at the correct time (after they have blurred a field)
 - Leverages your own custom input components you can use on other forms in your app
 
 Nice work! We hope you now feel like you have a decent grasp on how Formik works.

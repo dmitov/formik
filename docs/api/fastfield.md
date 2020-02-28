@@ -19,7 +19,7 @@ custom_edit_url: https://github.com/jaredpalmer/formik/edit/master/docs/api/fast
 
 For example, `<FastField name="firstName" />` will only re-render when there are:
 
-- Changes to `values.firstName`, `errors.firstName`, `touched.firstName`, or `isSubmitting`. This is determined by shallow comparison. Note: dotpaths are supported.
+- Changes to `values.firstName`, `errors.firstName`, `warnings.firstName`, `touched.firstName`, or `isSubmitting`. This is determined by shallow comparison. Note: dotpaths are supported.
 - A prop is added/removed to the `<FastField name="firstName" />`
 - The `name` prop changes
 
@@ -55,6 +55,12 @@ const Basic = () => (
           .email()
           .required(),
       })}
+      warningSchema={Yup.object().shape({
+        firstName: Yup.string().min(3),
+        email: Yup.string()
+          .email()
+          .min(10),
+      })}
       onSubmit={values => {
         setTimeout(() => {
           alert(JSON.stringify(values, null, 2));
@@ -63,7 +69,7 @@ const Basic = () => (
       render={formikProps => (
         <Form>
           {/** This <FastField> only updates for changes made to
-           values.firstName, touched.firstName, errors.firstName */}
+           values.firstName, touched.firstName, warnings.firstName, errors.firstName */}
           <label htmlFor="firstName">First Name</label>
           <FastField name="firstName" placeholder="Weezy" />
 
@@ -71,6 +77,8 @@ const Basic = () => (
            top-level formikProps which get all updates */}
           {form.touched.firstName &&
             form.errors.firstName && <div>{form.errors.firstName}</div>}
+          {form.touched.firstName &&
+            form.warnings.firstName && <div>{form.warnings.firstName}</div>}
 
           <label htmlFor="middleInitial">Middle Initial</label>
           <FastField name="middleInitial" placeholder="F">
@@ -87,6 +95,11 @@ const Basic = () => (
                  from another <Field>/<FastField>'s (i.e. firstName's) slice   */}
                 {form.touched.firstName && form.errors.firstName
                   ? form.errors.firstName
+                  : null}
+
+                {/* Also, this doesn't update */}
+                {form.touched.firstName && form.warnings.firstName
+                  ? form.warnings.firstName
                   : null}
 
                 {/* This doesn't update either */}
@@ -114,6 +127,11 @@ const Basic = () => (
                  of a <Field/>, which gets all updates */}
                 {form.touched.firstName && form.errors.firstName
                   ? form.errors.firstName
+                  : null}
+
+                {/* Also works */}
+                {form.touched.firstName && form.warnings.firstName
+                  ? form.warnings.firstName
                   : null}
               </div>
             )}

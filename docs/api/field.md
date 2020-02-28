@@ -25,7 +25,7 @@ There are 2 ways to render things with `<Field>`.
 
 - `field`: An object containing `onChange`, `onBlur`, `name`, and `value` of the field (see [`FieldInputProps`](./useField#fieldinputprops))
 - `form`: The Formik bag
-- `meta`: An object containing metadata (i.e. `value`, `touched`, `error`, and `initialValue`) about the field (see [`FieldMetaProps`](./useField#fieldmetaprops))
+- `meta`: An object containing metadata (i.e. `value`, `touched`, `error`, `warning` and `initialValue`) about the field (see [`FieldMetaProps`](./useField#fieldmetaprops))
 
 > In Formik 0.9 to 1.x, `component` and `render` props could also be used for rendering. These have been deprecated since 2.x. While the code still lives within `<Field>`, they will show a warning in the console.
 
@@ -61,7 +61,7 @@ const Example = () => (
                 <Field name="lastName">
                     {({
                           field, // { name, value, onChange, onBlur }
-                          form: {touched, errors}, // also values, setXXXX, handleXXXX, dirty, isValid, status, etc.
+                          form: {touched, errors}, // also warnings, values, setXXXX, handleXXXX, dirty, isValid, status, etc.
                           meta,
                       }) => (
                         <div>
@@ -183,7 +183,7 @@ Default is `'input'` (so an `<input>` is rendered by default)
 
 const CustomInputComponent = ({
   field, // { name, value, onChange, onBlur }
-  form: { touched, errors }, // also values, setXXXX, handleXXXX, dirty, isValid, status, etc.
+  form: { touched, errors }, // also warnings, values, setXXXX, handleXXXX, dirty, isValid, status, etc.
   ...props
 }) => (
   <div>
@@ -309,3 +309,68 @@ const MyForm = () => (
 
 Note: To allow for i18n libraries, the TypeScript typings for `validate` are
 slightly relaxed and allow you to return a `Function` (e.g. `i18n('invalid')`).
+
+### `warn`
+
+`warn?: (value: any) => undefined | string | Promise<any>`
+
+You can run independent field-level validations by passing a function to the
+`warn` prop. The function will respect the `validateOnBlur` and
+`validateOnChange` config/props specified in the `<Field>'s` parent `<Formik>`
+/ `withFormik`. This function can either be synchronous or asynchronous:
+
+- Sync: if invalid, return a `string` containing the error message or
+  return `undefined`.
+
+- Async: return a Promise that throws a `string` containing the error message.
+  This works like Formik's `warn`, but instead of returning an `warnings`
+  object, it's just a `string`.
+
+```jsx
+import React from 'react';
+import { Formik, Form, Field } from 'formik';
+
+// Synchronous warning function
+const warn = value => {
+  let warningMessage;
+  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(value)) {
+    warningMessage = 'Maybe an invalid email address';
+  }
+  return warningMessage;
+};
+
+// Async warning function
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const warnAsync = value => {
+  return sleep(2000).then(() => {
+    if (['admin', 'null', 'god'].includes(value)) {
+      throw 'Are you sure it is you?';
+    }
+  });
+};
+
+// example usage
+const MyForm = () => (
+  <Formik
+    initialValues={{ email: '', username: '' }}
+    onSubmit={values => alert(JSON.stringify(values, null, 2))}
+  >
+    {({ warnings, touched }) => (
+      <Form>
+        <Field warn={warn} name="email" type="email" />
+        {warnings.email && touched.email ? <div>{warnings.email}</div> : null}
+        <Field warn={warnAsync} name="username" />
+        {warnings.username && touched.username ? (
+          <div>{warnings.username}</div>
+        ) : null}
+        <button type="submit">Submit</button>
+      </Form>
+    )}
+  </Formik>
+);
+```
+
+Note: To allow for i18n libraries, the TypeScript typings for `warn` are
+slightly relaxed and allow you to return a `Function` (e.g. `i18n('invalid')`).
+

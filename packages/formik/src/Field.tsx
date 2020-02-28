@@ -92,12 +92,13 @@ export function useField<Val = any>(
     ? (propsOrFieldName as FieldHookConfig<Val>)
     : { name: propsOrFieldName as string };
 
-  const { name: fieldName, validate: validateFn } = props;
+  const { name: fieldName, validate: validateFn, warn: warnFn } = props;
 
   React.useEffect(() => {
     if (fieldName) {
       registerField(fieldName, {
         validate: validateFn,
+        warn: warnFn
       });
     }
     return () => {
@@ -136,6 +137,8 @@ export function Field({
   ...props
 }: FieldAttributes<any>) {
   const {
+    warn: _warn,
+    warningSchema: _warningSchema,
     validate: _validate,
     validationSchema: _validationSchema,
 

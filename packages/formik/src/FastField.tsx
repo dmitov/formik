@@ -81,6 +81,8 @@ class FastFieldInner<Values = {}, Props = {}> extends React.Component<
         getIn(this.props.formik.values, this.props.name) ||
       getIn(props.formik.errors, this.props.name) !==
         getIn(this.props.formik.errors, this.props.name) ||
+      getIn(props.formik.warnings, this.props.name) !==
+        getIn(this.props.formik.warnings, this.props.name) ||
       getIn(props.formik.touched, this.props.name) !==
         getIn(this.props.formik.touched, this.props.name) ||
       Object.keys(this.props).length !== Object.keys(props).length ||
@@ -97,6 +99,7 @@ class FastFieldInner<Values = {}, Props = {}> extends React.Component<
     // registered Field's validate fns right prior to submit
     this.props.formik.registerField(this.props.name, {
       validate: this.props.validate,
+      warn: this.props.warn
     });
   }
 
@@ -105,12 +108,14 @@ class FastFieldInner<Values = {}, Props = {}> extends React.Component<
       this.props.formik.unregisterField(prevProps.name);
       this.props.formik.registerField(this.props.name, {
         validate: this.props.validate,
+        warn: this.props.warn,
       });
     }
 
-    if (this.props.validate !== prevProps.validate) {
+    if (this.props.validate !== prevProps.validate || this.props.warn !== prevProps.warn) {
       this.props.formik.registerField(this.props.name, {
         validate: this.props.validate,
+        warn: this.props.warn,
       });
     }
   }
@@ -121,6 +126,7 @@ class FastFieldInner<Values = {}, Props = {}> extends React.Component<
 
   render() {
     const {
+      warn,
       validate,
       name,
       render,
@@ -133,6 +139,8 @@ class FastFieldInner<Values = {}, Props = {}> extends React.Component<
     } = this.props as FastFieldInnerProps<Values, Props>;
 
     const {
+      warn: _warn,
+      warningSchema: _warningSchema,
       validate: _validate,
       validationSchema: _validationSchema,
       ...restOfFormik
@@ -149,10 +157,12 @@ class FastFieldInner<Values = {}, Props = {}> extends React.Component<
     const meta = {
       value: getIn(formik.values, name),
       error: getIn(formik.errors, name),
+      warning: getIn(formik.warnings, name),
       touched: !!getIn(formik.touched, name),
       initialValue: getIn(formik.initialValues, name),
       initialTouched: !!getIn(formik.initialTouched, name),
       initialError: getIn(formik.initialErrors, name),
+      initialWarning: getIn(formik.initialWarning, name),
     };
 
     const bag = { field, meta, form: restOfFormik };

@@ -364,13 +364,14 @@ describe('<FieldArray />', () => {
 
       expect(formikBag.values.friends).toEqual(expected);
     });
-    it('should clean field from errors and touched', () => {
+    it('should clean field from errors, warnings and touched', () => {
       // seems weird calling 0 multiple times, but every time we call remove, the indexes get updated.
       arrayHelpers.remove(0);
       arrayHelpers.remove(0);
       arrayHelpers.remove(0);
 
       expect(formikBag.errors.friends).toEqual(undefined);
+      expect(formikBag.warnings.friends).toEqual(undefined);
       expect(formikBag.touched.friends).toEqual(undefined);
     });
   });
@@ -398,6 +399,44 @@ describe('<FieldArray />', () => {
       );
 
       formikBag.setErrors({ friends: { 2: ['Field error'] } });
+
+      arrayHelpers.push('michael');
+      const el = arrayHelpers.pop();
+      arrayHelpers.swap(0, 2);
+      arrayHelpers.insert(1, 'michael');
+      arrayHelpers.replace(1, 'brian');
+      arrayHelpers.unshift('michael');
+      arrayHelpers.remove(1);
+
+      const expected = ['michael', 'brian', 'andrea', 'jared'];
+      expect(el).toEqual('michael');
+      expect(formikBag.values.friends).toEqual(expected);
+    });
+  });
+
+  describe('given array-like object representing warnings', () => {
+    it('should run arrayHelpers successfully', () => {
+      let formikBag: any;
+      let arrayHelpers: any;
+      ReactDOM.render(
+        <TestForm
+          render={(props: any) => {
+            formikBag = props;
+            return (
+              <FieldArray
+                name="friends"
+                render={arrayProps => {
+                  arrayHelpers = arrayProps;
+                  return null;
+                }}
+              />
+            );
+          }}
+        />,
+        node
+      );
+
+      formikBag.setWarnings({ friends: { 2: ['Field warning'] } });
 
       arrayHelpers.push('michael');
       const el = arrayHelpers.pop();

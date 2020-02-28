@@ -62,21 +62,37 @@ export interface WithFormikConfig<
    */
   mapPropsToErrors?: (props: Props) => FormikErrors<Values>;
 
+    /**
+   * Map props to the form warnings state
+   */
+  mapPropsToWarnings?: (props: Props) => FormikErrors<Values>;
+
   /**
    * @deprecated in 0.9.0 (but needed to break TS types)
    */
   mapValuesToPayload?: (values: Values) => DeprecatedPayload;
 
-  /**
-   * A Yup Schema or a function that returns a Yup schema
+ /**
+   * A Yup Schema or a function that returns a Yup schema for errors
    */
-  validationSchema?: any | ((props: Props) => any);
+  validationSchema?: any | (() => any);
+
+  /**
+   * A Yup Schema or a function that returns a Yup schema for warnings
+   */
+  warningSchema?: any | (() => any);
 
   /**
    * Validation function. Must return an error object or promise that
    * throws an error object where that object keys map to corresponding value.
    */
-  validate?: (values: Values, props: Props) => void | object | Promise<any>;
+  validate?: (values: Values) => void | object | Promise<FormikErrors<Values>>;
+
+  /**
+   * Warn function. Must return an warning object or promise that
+   * throws an warning object where that object keys map to corresponding value.
+   */
+  warn?: (values: Values) => void | object | Promise<FormikErrors<Values>>;
 }
 
 export type CompositeComponent<P> =
@@ -140,6 +156,18 @@ export function withFormik<
         return isFunction(config.validationSchema)
           ? config.validationSchema!(this.props)
           : config.validationSchema;
+          
+      };
+
+      warn = (values: Values): void | object | Promise<any> => {
+        return config.warn!(values, this.props);
+      };
+
+      warningSchema = () => {
+        return isFunction(config.warningSchema)
+          ? config.warningSchema!(this.props)
+          : config.warningSchema;
+          
       };
 
       handleSubmit = (values: Values, actions: FormikHelpers<Values>) => {
@@ -163,13 +191,18 @@ export function withFormik<
             {...props}
             {...config}
             validate={config.validate && this.validate}
+            warn={config.warn && this.warn}
             validationSchema={config.validationSchema && this.validationSchema}
+            warningSchema={config.warningSchema && this.warningSchema}
             initialValues={mapPropsToValues(this.props)}
             initialStatus={
               config.mapPropsToStatus && config.mapPropsToStatus(this.props)
             }
             initialErrors={
               config.mapPropsToErrors && config.mapPropsToErrors(this.props)
+            }
+            initialWarnings={
+              config.mapPropsToWarnings && config.mapPropsToWarnings(this.props)
             }
             initialTouched={
               config.mapPropsToTouched && config.mapPropsToTouched(this.props)
